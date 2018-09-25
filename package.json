@@ -1,0 +1,34 @@
+{
+  "name": "rc-openapi-gen",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "npm run clean && tsc",
+    "watch": "node_modules/watch/cli.js \"npm run build\" src",
+    "clean": "shx rm -rf dist",
+    "prepublish": "npm run build"
+  },
+  "watch": {
+    "build": "src/*.ts"
+  },
+  "bin": {
+    "rc-openapi-gen": "cli.js"
+  },
+  "devDependencies": {
+    "@types/commander": "^2.12.2",
+    "@types/node": "^10.11.0",
+    "fork-ts-checker-webpack-plugin": "^0.4.9",
+    "shx": "^0.3.2",
+    "ts-loader": "^5.2.0",
+    "typescript": "^3.0.3",
+    "watch": "^1.0.2",
+    "webpack": "^4.19.1",
+    "webpack-cli": "^3.1.1"
+  },
+  "dependencies": {
+    "commander": "^2.18.0",
+    "routing-controllers": "^0.7.7",
+    "routing-controllers-openapi": "^1.4.1"
+  }
+}
