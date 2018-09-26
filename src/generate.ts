@@ -4,42 +4,81 @@ import {
   MetadataArgsStorage
 } from "routing-controllers";
 import { routingControllersToSpec } from "routing-controllers-openapi";
-import { SchemaObject } from "openapi3-ts";
+import { SchemaObject, OpenAPIObject } from "openapi3-ts";
 import {
   ParamMetadataArgs
 } from "routing-controllers/metadata/args/ParamMetadataArgs";
-import baseSchema from "./baseSchema";
 import fs from "fs";
 import path from "path";
 import _ from "lodash";
-
-interface GenerateOptions {
-  inPath: string,
-  outPath: string,
-  packagePath: string,
-  controllersExport: string,
-  schemasPath: string
-}
+import glob from "glob";
+import { Config } from "./interfaces";
 
 interface MetadataSchemaObject {
   obj: SchemaObject
 }
 
-const buildSchemas = (root): SchemaObject => {
-  const schema = baseSchema;
-  for (let file of fs.readdirSync(root)) {
-    const filename = path.join(root, file);
-    var stat = fs.lstatSync(filename);
-    if (!stat.isDirectory() && filename.indexOf(".js") >= 0) {
-      const apiSchema: SchemaObject = require(filename).default;
-      Object.entries(apiSchema).forEach(([key, value]) => {
-        apiSchema[value.id] = value;
-        delete apiSchema[key];
+const buildSchemas = (fileglob, baseSchema): SchemaObject =>
+  new Promise((resolve, reject) => {
+    const root = process.cwd();
+    const schema = baseSchema;
+    glob(fileglob, {}, (err, files) => {
+      if (err) {
+        reject(err);
+      }
+      for (let file of files) {
+        const filename = path.join(root, file);
+        var stat = fs.lstatSync(filename);
+        if (!stat.isDirectory() && filename.indexOf(".js") >= 0) {
+          const apiSchema: SchemaObject = require(filename).default;
+          Object.entries(apiSchema).forEach(([key, value]) => {
+            apiSchema[value.id] = value;
+            delete apiSchema[key];
+          });
+          Object.assign(schema, apiSchema);
+        }
+      }
+      resolve(schema);
+    });
+  });
+
+const buildControllers = (fileglob): Promise<Array<Function>> =>
+  new Promise((resolve, reject) => {
+    const root = process.cwd();
+    glob(fileglob, {}, (err, files) => {
+      if (err) {
+        reject(err);
+      }
+      resolve(
+        files
+          .map(file => path.join(root, file))
+          .map(filename => require(filename))
+          .map(imported => _.first(_.filter(_.values(imported), _.isFunction)))
+      );
+    });
+  });
+
+const generateCodeSamples = (
+  spec: OpenAPIObject,
+  config: Config["samples"]
+) => {
+  const root = path.join(process.cwd(), config.dir)
+  _.forEach(_.entries(spec.paths), ([pathObj, methods]) => {
+      _.forEach(_.entries(methods), ([method, operation]) => {
+        spec.paths[pathObj][method]['x-code-samples'] = _.reject(
+          _.map(_.entries(config.languages), ([lang, {extension}]) => {
+            const filename = path.join(root, lang, `${operation.operationId}.${method}.${extension}`)
+            let source = ''
+            if (fs.existsSync(filename)) {
+                source = fs.readFileSync(filename).toString()
+            }
+            if (_.isEmpty(source)) { return null; }
+            return { lang, source };
+          }),
+          _.isEmpty
+        )
       });
-      Object.assign(schema, apiSchema);
-    }
-  }
-  return schema;
+  })
 };
 
 const createParamType = (
@@ -90,26 +129,23 @@ const copyReflectMetadata = (
   storage.params.map(param => copyParamSchema(param, schemas));
 };
 
-export default ({
-  inPath,
-  outPath,
-  packagePath,
-  schemasPath,
-  controllersExport
-}: GenerateOptions) => {
-  const packageJson: PackageJSON = require(packagePath);
+export default async (config: Config) => {
   const routingControllerOptions = {
-    controllers: require(inPath)[controllersExport]
+    controllers: await buildControllers(config.controllers)
   };
-  const schemas = buildSchemas(schemasPath);
+  const schemas = await buildSchemas(config.schemas, config.baseSchema);
   const storage = getMetadataArgsStorage();
   copyReflectMetadata(storage, schemas);
-  const spec = routingControllersToSpec(storage, routingControllerOptions, {
-    components: { schemas },
-    info: {
-      title: packageJson.name,
-      version: packageJson.version
-    }
-  });
-  fs.writeFileSync(outPath, JSON.stringify(spec, null, 2));
+  const spec = routingControllersToSpec(
+    storage,
+    routingControllerOptions,
+    Object.assign(
+      {
+        components: { schemas }
+      },
+      config.static
+    )
+  );
+  generateCodeSamples(spec, config.samples);
+  fs.writeFileSync(config.out, JSON.stringify(spec, null, 2));
 };
