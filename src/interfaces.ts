@@ -1,4 +1,4 @@
-import { SchemaObject, OperationObject, OpenAPIObject } from "openapi3-ts";
+import { SchemaObject } from "openapi3-ts";
 
 export interface PackageJSON {
   version: string,
