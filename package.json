@@ -29,6 +29,8 @@
   },
   "dependencies": {
     "commander": "^2.18.0",
+    "lodash": "^4.17.11",
+    "reflect-metadata": "^0.1.12",
     "routing-controllers": "^0.7.7",
     "routing-controllers-openapi": "^1.4.1"
   }
