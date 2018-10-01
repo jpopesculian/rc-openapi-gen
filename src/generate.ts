@@ -32,8 +32,10 @@ const buildSchemas = (fileglob, baseSchema): SchemaObject =>
         if (!stat.isDirectory() && filename.indexOf(".js") >= 0) {
           const apiSchema: SchemaObject = require(filename).default;
           Object.entries(apiSchema).forEach(([key, value]) => {
-            apiSchema[value.id] = value;
-            delete apiSchema[key];
+            if (value.id != key) {
+              apiSchema[value.id] = value;
+              delete apiSchema[key];
+            }
           });
           Object.assign(schema, apiSchema);
         }
