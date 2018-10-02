@@ -37,23 +37,25 @@ const getJsLibs = async fileglobs => {
 };
 
 const buildSchemas = async (fileglobs, baseSchema): Promise<SchemaObject> => {
-  const schema = baseSchema;
-  for (let lib of await getJsLibs(fileglobs)) {
-    const apiSchema: SchemaObject = lib.default;
-    Object.entries(apiSchema).forEach(([key, value]) => {
-      if (value.id != key) {
-        apiSchema[value.id] = value;
-        delete apiSchema[key];
-      }
-    });
-    Object.assign(schema, apiSchema);
-  }
-  return schema;
+  const schema = _.clone(baseSchema);
+  return _.chain(await getJsLibs(fileglobs))
+    .flatMap(_.entries)
+    .filter(([_key, value]) => _.isObject(value))
+    .map(([key, obj]) => (_.isString(obj.id) ? { [key]: obj } : obj))
+    .flatMap(_.values)
+    .filter(_.isObject)
+    .filter(obj => _.isString(obj.id))
+    .reduce(
+      (mergedSchema, schemaObj) =>
+        _.merge(mergedSchema, { [schemaObj.id]: schemaObj }),
+      schema
+    )
+    .value();
 };
 
 const buildControllers = async (fileglobs): Promise<Array<Function>> =>
-  (await getJsLibs(fileglobs)).map(imported =>
-    _.first(_.filter(_.values(imported), _.isFunction))
+  _.flatMap(await getJsLibs(fileglobs), imported =>
+    _.filter(_.values(imported), _.isFunction)
   );
 
 const generateCodeSamples = (
