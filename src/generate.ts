@@ -58,6 +58,23 @@ const buildControllers = async (fileglobs): Promise<Array<Function>> =>
     _.filter(_.values(imported), _.isFunction)
   );
 
+const addServersToPaths = (
+  spec: OpenAPIObject,
+  config: Config["static"]
+) => {
+  const servers = (config || {})["x-servers"];
+  if (_.isEmpty(servers)) {
+    return;
+  }
+
+  _.forEach(_.entries(spec.paths), ([path, methods]) =>
+    _.forEach(
+      _.keys(methods),
+      method => (spec.paths[path][method].servers = servers)
+    )
+  );
+};
+
 const generateCodeSamples = (
   spec: OpenAPIObject,
   config: Config["samples"]
@@ -163,5 +180,6 @@ export default async (config: Config) => {
     )
   );
   generateCodeSamples(spec, config.samples);
+  addServersToPaths(spec, config.static);
   fs.writeFileSync(config.out, JSON.stringify(spec, null, 2));
 };
