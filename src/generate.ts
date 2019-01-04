@@ -5,9 +5,7 @@ import {
 } from "routing-controllers";
 import { routingControllersToSpec } from "routing-controllers-openapi";
 import { SchemaObject, OpenAPIObject } from "openapi3-ts";
-import {
-  ParamMetadataArgs
-} from "routing-controllers/metadata/args/ParamMetadataArgs";
+import { ParamMetadataArgs } from "routing-controllers/metadata/args/ParamMetadataArgs";
 import fs from "fs";
 import path from "path";
 import _ from "lodash";
@@ -16,7 +14,7 @@ import { promisify } from "util";
 import { Config } from "./interfaces";
 
 interface MetadataSchemaObject {
-  obj: SchemaObject
+  obj: SchemaObject;
 }
 
 const getJsLibs = async fileglobs => {
@@ -58,10 +56,7 @@ const buildControllers = async (fileglobs): Promise<Array<Function>> =>
     _.filter(_.values(imported), _.isFunction)
   );
 
-const addServersToPaths = (
-  spec: OpenAPIObject,
-  config: Config["static"]
-) => {
+const addServersToPaths = (spec: OpenAPIObject, config: Config["static"]) => {
   const servers = (config || {})["x-servers"];
   if (_.isEmpty(servers)) {
     return;
@@ -89,15 +84,19 @@ const generateCodeSamples = (
       }))
     )
     .flatMap(descriptor =>
-      _.map(_.entries(config.languages), ([lang, langConfig]) =>
-        _.merge(descriptor, { lang, langConfig })
-      )
+      _.map(_.entries(config.languages), ([lang, langConfig]) => ({
+        ...descriptor,
+        lang,
+        langConfig
+      }))
     )
     .map(descriptor => {
       const filename = path.join(
         root,
         descriptor.lang,
-        `${descriptor.operation.operationId}.${descriptor.method}.${descriptor.langConfig.extension}`
+        `${descriptor.operation.operationId}.${descriptor.method}.${
+          descriptor.langConfig.extension
+        }`
       );
       const source = fs.existsSync(filename)
         ? fs.readFileSync(filename).toString()
@@ -146,11 +145,8 @@ const copyParamSchema = (
   if (!(_.isArray(appSchema) && _.isObject(appSchema[index]))) {
     return;
   }
-  const openAPIschema = Reflect.getMetadata(
-    "design:paramtypes",
-    object,
-    method
-  ) || [];
+  const openAPIschema =
+    Reflect.getMetadata("design:paramtypes", object, method) || [];
   openAPIschema[index] = createParamType(appSchema[index], schemas);
   Reflect.defineMetadata("design:paramtypes", openAPIschema, object, method);
 };
